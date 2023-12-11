@@ -9,9 +9,6 @@ class InMemoryFileSystem:
         }
 
     def change_directory(self, path):
-        print(self.current_directory)
-        print(self.file_system)
-        print(path)
         if path == "/":
             self.current_directory = "/"
         elif path == "..":
@@ -26,66 +23,108 @@ class InMemoryFileSystem:
                 print("Path not found")
         else:
             # Relative path
-            target_path = os.path.join(self.current_directory, path)
-            print(target_path)
+            target_path = join_path(self.current_directory, path)
             if target_path in self.file_system:
                 self.current_directory = target_path
             else:
                 print("Path not found")
 
     def list_directory(self, path="."):
-        target_path = os.path.join(self.current_directory, path)
-        # TODO: check if required
-        target_path = target_path.replace("\\", '')
+        print(self.file_system)
+        target_path = join_path(self.current_directory, path)
         if target_path in self.file_system and isinstance(self.file_system[target_path], dict):
             return list(self.file_system[target_path].keys())
         else:
             return None
 
     def create_directory(self, directory_name):
-        path = os.path.join(self.current_directory, directory_name)
-        print(path)
+        path = join_path(self.current_directory, directory_name)
         self.file_system[path] = {}
         self.file_system[self.current_directory][directory_name] = ""
 
     def create_file(self, file_name):
-        path = os.path.join(self.current_directory, file_name)
         self.file_system[self.current_directory][file_name] = ""
 
     def read_file(self, file_name):
-        path = os.path.join(self.current_directory, file_name)
+        if file_name.startswith("/"):
+            index = file_name.rindex('/')
+            file_path = file_name[:index]
+            if file_path in self.file_system:
+                new_file_name = file_name[index:]
+                return self.file_system[file_path].get(new_file_name, None)
+            # else:
+            #     print("Directory does not exist")
         return self.file_system[self.current_directory].get(file_name, None)
 
     def write_to_file(self, file_name, content):
-        path = os.path.join(self.current_directory, file_name)
-        self.file_system[self.current_directory][file_name] = content
+        if file_name.startswith("/"):
+            index = file_name.rindex('/')
+            file_path = file_name[:index]
+            if file_path in self.file_system:
+                new_file_name = file_name[index:]
+                self.file_system[file_path][new_file_name] = content
+            else:
+                print("Directory does not exist")
+
+        else:
+            self.file_system[self.current_directory][file_name] = content
 
     def move(self, source, destination):
-        source_path = os.path.join(self.current_directory, source)
-        destination_path = os.path.join(self.current_directory, destination)
+        source_path = join_path(self.current_directory, source)
+        destination_path = join_path(self.current_directory, destination)
 
         if source_path in self.file_system:
-            self.file_system[destination_path] = self.file_system.pop(source_path)
+            self.file_system[destination_path] = { **self.file_system.pop(source_path), **self.file_system[destination_path]}
+        elif source in self.file_system[self.current_directory]:
+            if destination_path in self.file_system:
+                file_to_move = { source : self.file_system[self.current_directory][source] }
+                del self.file_system[self.current_directory][source]
+                self.file_system[destination_path] = { **self.file_system[destination_path], **file_to_move}
+            else:
+                print(f"Error: Destination not found - {destination_path}")
         else:
             print(f"Error: Source not found - {source}")
 
     def copy(self, source, destination):
-        source_path = os.path.join(self.current_directory, source)
-        destination_path = os.path.join(self.current_directory, destination)
+        source_path = join_path(self.current_directory, source)
+        destination_path = join_path(self.current_directory, destination)
 
         if source_path in self.file_system:
-            self.file_system[destination_path] = self.file_system[source_path].copy()
+            self.file_system[destination_path] = {**self.file_system[source_path].copy(), **self.file_system[destination_path]}
+        elif source in self.file_system[self.current_directory]:
+            if destination_path in self.file_system:
+                file_to_copy = { source : self.file_system[self.current_directory][source] }
+                self.file_system[destination_path] = { **self.file_system[destination_path], **file_to_copy}
+            else:
+                print(f"Error: Destination not found - {destination_path}")
         else:
             print(f"Error: Source not found - {source}")
 
     def remove(self, path):
-        target_path = os.path.join(self.current_directory, path)
-
-        if target_path in self.file_system:
-            del self.file_system[target_path]
-            del self.file_system[self.current_directory][path]
+        if path.startswith("/"):
+            index = path.rindex('/')
+            print(index)
+            file_path = path[:index]
+            print(file_path)
+            if file_path in self.file_system:
+                file_name = path[index+1:]
+                print(file_name)
+                del self.file_system[file_path][file_name]
+                try:
+                    del self.file_system[path]
+                finally:
+                    return
+            else:
+                print("Directory does not exist")
         else:
-            print(f"Error: File or directory not found - {path}")
+            target_path = join_path(self.current_directory, path)
+            if target_path in self.file_system:
+                del self.file_system[target_path]
+                del self.file_system[self.current_directory][path]
+            elif path in self.file_system[self.current_directory]:
+                del self.file_system[self.current_directory][path]
+            else:
+                print(f"Error: File or directory not found - {path}")
 
     def grep(self, pattern, file_name):
         content = self.read_file(file_name)
@@ -97,6 +136,11 @@ class InMemoryFileSystem:
 
 def print_prompt(current_directory):
     print(f"{current_directory}$ ", end="")
+
+def join_path(current_directory, path):
+    if path == "": return current_directory
+    if current_directory == "/": return current_directory + path
+    return current_directory + '/' + path
 
 def main():
     file_system = InMemoryFileSystem()
@@ -142,12 +186,13 @@ def main():
             else:
                 print("Usage: cat <file>")
         elif command == "echo":
+            print(args)
             if len(args) >= 2 and args[1] == ">":
-                file_name = args[-1]
-                content = " ".join(args[2:-1])
+                file_name = args[0]
+                content = " ".join(args[2:])
                 file_system.write_to_file(file_name, content)
             else:
-                print("Usage: echo 'text' > file")
+                print("Usage: echo file > 'text'")
         elif command == "mv":
             if len(args) == 2:
                 file_system.move(args[0], args[1])
