@@ -34,9 +34,9 @@ A dictionary to represent the file system. Each key is a directory path, and its
 
 # To create an executable using PyInstaller for the in-memory file system <br />
 Install Python and pip <br />
-```pip install pyinstaller <br />```
+```pip install pyinstaller``` <br />
 #Create the Executable using PyInstaller <br />
-```pyinstaller --onefile main.py <br />```
+```pyinstaller --onefile main.py ```<br />
 Run the generated executable: <br />
 On Windows: <br />
 main.exe <br />
